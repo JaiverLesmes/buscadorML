@@ -2,18 +2,28 @@ from bs4 import BeautifulSoup
 import re
 import os
 
-import nltk
-nltk.download('stopwords')
-from nltk.corpus import stopwords
+import sqlite3
 
+stopWords = ['&#3','reuter','i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've", "you'll", "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', "she's", 'her', 'hers', 'herself', 'it', "it's", 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this', 'that', "that'll", 'these', 'those', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'a', 'an', 'the', 'and', 'but', 'if', 'or', 'because', 'as', 'until', 'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', "don't", 'should', "should've", 'now', 'd', 'll', 'm', 'o', 're', 've', 'y', 'ain', 'aren', "aren't", 'couldn', "couldn't", 'didn', "didn't", 'doesn', "doesn't", 'hadn', "hadn't", 'hasn', "hasn't", 'haven', "haven't", 'isn', "isn't", 'ma', 'mightn', "mightn't", 'mustn', "mustn't", 'needn', "needn't", 'shan', "shan't", 'shouldn', "shouldn't", 'wasn', "wasn't", 'weren', "weren't", 'won', "won't", 'wouldn', "wouldn't"]
+
+from datetime import datetime
+startTime = datetime.now()
 
 csv = open("basedatos.csv","a")
 
 
+dbsql = sqlite3.connect('basedatos.db')
+c = dbsql.cursor()
+
+# Create table
+c.execute('''CREATE TABLE IF NOT EXISTS noticias(id INTEGER PRIMARY KEY AUTOINCREMENT, titulo TEXT, descripcion TEXT);''')
+
+
+listado = []
+
 def guardar(titulo,cuerpo):
-    csv.write(titulo+","+cuerpo+"\n")
-
-
+    #csv.write(titulo+","+cuerpo+"\n")
+    listado.append((titulo,cuerpo))
 
 
 
@@ -41,13 +51,25 @@ def extraer_titulo_body(texto):
     titulo = titulo.replace(",","---").replace("\n"," ")
 
 
-    body = body.replace("reuter"," ").replace("("," ").replace(")"," ").replace(";"," ").replace("&#3"," ").replace("\n"," ")
+    body = body.replace("("," ").replace(")"," ").replace(";"," ").replace("\n"," ")
     body = body.replace(",", " ").replace("<", " ").replace(">", " ").replace("\""," ").replace("."," ").replace("/"," ")
     #body = re.sub('[^A-Za-z ]+','',body)
 
-    filtered_words = [word for word in body.split(" ") if word not in stopwords.words('english') and  word.isalpha()]
+    #body = re.sub('\d', '', body)
 
-    filtered_words_titulo = [word for word in titulo.split(" ") if word not in stopwords.words('english') and word.isalpha()]
+    filtered_words = []
+
+    for word in body.split():
+        if word not in stopWords and word.isalpha():
+            filtered_words.append(word)
+
+    filtered_words_titulo = []
+
+    for word in titulo.split():
+        if word not in stopWords and word.isalpha():
+            filtered_words_titulo.append(word)
+
+
 
     body =" ".join(str(x) for x in filtered_words)
     titulo =" ".join(str(x) for x in filtered_words_titulo)
@@ -81,6 +103,9 @@ def analizar2(ruta):
         except Exception as e:
             print ("EEROR - " +str(e))
             break
+    print ("Este archivo tiene "+str(contador)+" articulos")
+    print(datetime.now() - startTime)
+    print("\n")
 
 
 
@@ -90,16 +115,17 @@ def analizar2(ruta):
 
 
 def listar():
-    directio_actual = os.getcwd()
-    for file in os.listdir(directio_actual ):
-        if file.endswith("0.sgm"):
+    directio_actual = os.path.join(os.getcwd(),"archivos")
+    for file in os.listdir(directio_actual):
+        if file.endswith(".sgm"):
             archivo = os.path.join(directio_actual ,file)
             analizar2(archivo)
-            break
-
-
 
 
 
 
 listar()
+
+c.executemany('''INSERT OR IGNORE INTO noticias(titulo, descripcion) VALUES(?,?)''', listado)
+dbsql.commit()
+print(datetime.now() - startTime)
